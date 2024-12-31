@@ -1,0 +1,12 @@
+# dir
+.bat
+.mypy_cache
+**/__pycache__/**
+data/output/*
+data/raw/*
+data/processed/*
+env_st_app
+test/
+
+# file
+*.db
