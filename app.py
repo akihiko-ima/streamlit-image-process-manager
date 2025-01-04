@@ -103,7 +103,7 @@ if uploaded_files:
         streamlit_js_eval(js_code="window.location.reload(true);", key="reload")
 
         # 保存をlineに通知
-        messageText = f"画像が保存されました: {file_name}"
+        messageText = f"画像が保存されました: {file_name}\nURLはこちらです。=> https://imaima-image-process-manager.streamlit.app/"
         send_line_message(
             USER_ID=st.secrets["LINE_USER_ID"],
             CHANNEL_ACCESS_TOKEN=st.secrets["LINE_CHANNEL_ACCESS_TOKEN"],
