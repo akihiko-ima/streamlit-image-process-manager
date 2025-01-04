@@ -24,11 +24,13 @@ def initialize_setting():
         DATA_PATH = os.getenv("DATA_PATH")
         DATA_RAW_PATH = os.path.join(DATA_PATH, "raw")
         DATA_PROCESSED_PATH = os.path.join(DATA_PATH, "processed")
+        LOG_PATH = os.getenv("LOG_PATH")
 
         if DATA_PATH and not os.path.exists(DATA_PATH):
             os.makedirs(DATA_PATH)
             os.makedirs(DATA_RAW_PATH)
             os.makedirs(DATA_PROCESSED_PATH)
+            os.makedirs(LOG_PATH)
 
             print(f"Directory created.")
         else:
