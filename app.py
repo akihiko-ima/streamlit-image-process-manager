@@ -21,6 +21,7 @@ from database.cruds.image_data import (
 from database.cruds.processed_image_data import create_processed_image_data
 from schemas.schemas import ImageDataCreate, ProcessedImageDataCreate
 from utils.format_datetime_column import format_datetime_column
+from utils.send_line_message import send_line_message
 
 
 # --------------- initialized ---------------
@@ -100,6 +101,15 @@ if uploaded_files:
         st.toast("画像が保存されました", icon="🎉")
         time.sleep(1)
         streamlit_js_eval(js_code="window.location.reload(true);", key="reload")
+
+        # 保存をlineに通知
+        messageText = f"画像が保存されました: {file_name}"
+        send_line_message(
+            USER_ID=st.secrets["LINE_USER_ID"],
+            CHANNEL_ACCESS_TOKEN=st.secrets["LINE_CHANNEL_ACCESS_TOKEN"],
+            messageText=messageText,
+            log_file_path="./log/line_message.log",
+        )
 
 
 # --------------- データベーステーブルセクション ---------------

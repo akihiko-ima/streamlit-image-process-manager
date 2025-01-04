@@ -6,7 +6,9 @@ data/output/*
 data/raw/*
 data/processed/*
 env_st_app
+log/
 test/
 
 # file
 *.db
+.streamlit/secrets.toml
