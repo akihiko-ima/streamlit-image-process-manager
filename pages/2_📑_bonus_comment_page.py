@@ -23,6 +23,7 @@ if st.button(
         db.add(new_comment)
         db.commit()
         db.refresh(new_comment)
+        print(f"{new_comment.content}: comment at {new_comment.created_at}")
         st.toast("コメントが保存されました！", icon="🎉")
     else:
         st.error("コメントを入力してください。")
