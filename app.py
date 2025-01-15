@@ -351,14 +351,15 @@ if second_right_button.button(
                 save_path = os.path.join(
                     st.session_state.data_processed_path, new_file_name
                 )
-                cv2.imwrite(save_path, detected_image)
+                detected_image_rgb = cv2.cvtColor(detected_image, cv2.COLOR_BGR2RGB)
+                cv2.imwrite(save_path, detected_image_rgb)
 
                 # 結果表示
                 col_1, col_2 = st.columns(2)
                 with col_1:
                     st.image(image_rgb, use_container_width=True)
                 with col_2:
-                    st.image(detected_image, caption=new_file_name, use_container_width=True)
+                    st.image(detected_image_rgb, caption=new_file_name, use_container_width=True)
 
                 # データベース処理プロセス
                 processed_data = ProcessedImageDataCreate(
