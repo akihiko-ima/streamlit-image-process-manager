@@ -1,4 +1,5 @@
 import streamlit as st
+import cv2
 import pandas as pd
 from PIL import Image
 from sqlalchemy.orm import Session
@@ -72,9 +73,10 @@ if st.button(
             image_data = get_processed_image_data_by_id(db=db, image_id=image_id)
 
             if image_data is not None:
-                image = Image.open(image_data.file_path)
+                image = cv2.imread(image_data.file_path)
+                image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
                 st.image(
-                    image, caption=str(image_data.file_name), use_container_width=True
+                    image_rgb, caption=str(image_data.file_name), use_container_width=True
                 )
             else:
                 st.toast("画像データが見つかりませんでした", icon="🚨")
