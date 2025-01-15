@@ -359,7 +359,7 @@ if second_right_button.button(
                 with col_1:
                     st.image(image_rgb, use_container_width=True)
                 with col_2:
-                    st.image(detected_image_rgb, caption=new_file_name, use_container_width=True)
+                    st.image(detected_image, caption=new_file_name, use_container_width=True)
 
                 # データベース処理プロセス
                 processed_data = ProcessedImageDataCreate(
