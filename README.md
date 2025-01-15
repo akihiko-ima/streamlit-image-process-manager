@@ -1,5 +1,9 @@
 # Python version 3.11.9
 
+## 実行環境
+このアプリはubuntu環境でのみ実行します。
+(mediapipe0.10.20とstreamlitの組み合わせではエラーが生じる可能性があります。)
+
 ## 採用技術
 
 - **フロントエンド**: Streamlit
@@ -56,10 +60,10 @@ streamlit-image-process-manager/
   streamlit run app.py
 
 - 仮想環境作成</br>
-  => python -m venv env_st_app
+  => python3 -m venv env_st_app
 
 - 仮想環境起動</br>
-  => ./env_st_app/Scripts/activate
+  => source ./env_st_app/bin/activate
 
 - requirements.txt</br>
   pip install -r requirements.txt</br>

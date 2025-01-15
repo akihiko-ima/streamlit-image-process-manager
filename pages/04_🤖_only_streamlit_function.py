@@ -55,10 +55,32 @@ def message_dialog(message):
     st.write(f"{message}")
 
 
+# 画像保存関数
+def save_image(image: Image.Image, file_name: str, save_path: str, db: Session) -> None:
+    """
+    画像を保存し、データベースに登録し、通知を送信する。
+
+    Args:
+        image (Image.Image): 保存するPIL画像オブジェクト。
+        file_name (str): 保存先のファイル名。
+        save_path (str): 保存先のディレクトリパス。
+        db (DatabaseSession): データベースセッションオブジェクト。
+    """
+    file_path = os.path.join(save_path, file_name)
+    image.save(file_path)
+
+    # データベースに保存
+    new_image_data = ImageDataCreate(
+        file_name=file_name,
+        file_path=file_path,
+        file_extension=file_name.split(".")[-1],
+        file_size=os.path.getsize(file_path),
+        description="",
+    )
+    create_image_data(db=db, image_data_create=new_image_data)
+
+
 st.title(":material/folder_managed: 画像処理マネージャー")
-st.write("")
-st.info("streamlitのデータフレームの機能だけで実装(AG Grid無し)")
-st.write("")
 
 if st.sidebar.button(
     label="リセット",
@@ -71,49 +93,69 @@ if st.sidebar.button(
 # --------------- 画像アップロードセクション ---------------
 st.subheader(":material/cloud_upload: 画像アップロード", divider="gray")
 
-uploaded_files = st.file_uploader(
-    label="画像をアップロードしてください",
-    type=["png", "jpg", "jpeg"],
-    accept_multiple_files=True,
-)
+take_photo = st.toggle("📸 Take a photo?")
 
-if uploaded_files:
-    if st.button(
-        label="画像を保存する",
-        key="save_image_data",
-        type="primary",
-        icon=":material/cloud_upload:",
-    ):
-        for uploaded_file in uploaded_files:
-            image = Image.open(uploaded_file)
-            file_name = uploaded_file.name
-            file_path = os.path.join(st.session_state.data_raw_path, file_name)
-            file_extension = os.path.splitext(uploaded_file.name)[1][1:]
-            file_size = uploaded_file.size
+if take_photo:
+    picture = st.camera_input("Take a picture", label_visibility="hidden")
 
-            image.save(file_path)
-            # dbに保存
-            new_image_data = ImageDataCreate(
-                file_name=file_name,
-                file_path=file_path,
-                file_extension=file_extension,
-                file_size=file_size,
-                description="",
+    if picture:
+        st.image(picture)
+
+        # 保存ボタンを表示
+        if st.button(
+            label="撮影した画像を保存する",
+            key="save_camera_image",
+            type="primary",
+            icon=":material/cloud_upload:",
+        ):
+            camera_file_name = f"camera_image_{int(time.time())}.png"
+            image: Image.Image = Image.open(picture)
+            save_image(image, camera_file_name, st.session_state.data_raw_path, db)
+
+            # 保存をLINEに通知
+            message_text = f"画像が保存されました: {camera_file_name}\nURLはこちらです。=> https://imaima-image-process-manager.streamlit.app/"
+            send_line_message(
+                USER_ID=st.secrets["LINE_USER_ID"],
+                CHANNEL_ACCESS_TOKEN=st.secrets["LINE_CHANNEL_ACCESS_TOKEN"],
+                messageText=message_text,
+                log_file_path="./log/line_message.log",
             )
-            create_image_data(db=db, image_data_create=new_image_data)
+            st.toast("画像が保存されました", icon="🎉")
+            time.sleep(1)
+            st.rerun()
 
-        st.toast("画像が保存されました", icon="🎉")
-        time.sleep(1)
-        streamlit_js_eval(js_code="window.location.reload(true);", key="reload")
+else:
+    uploaded_files = st.file_uploader(
+        label="画像をアップロードしてください",
+        type=["png", "jpg", "jpeg"],
+        accept_multiple_files=True,
+        label_visibility="hidden",
+    )
 
-        # 保存をlineに通知
-        messageText = f"画像が保存されました: {file_name}\nURLはこちらです。=> https://imaima-image-process-manager.streamlit.app/"
-        send_line_message(
-            USER_ID=st.secrets["LINE_USER_ID"],
-            CHANNEL_ACCESS_TOKEN=st.secrets["LINE_CHANNEL_ACCESS_TOKEN"],
-            messageText=messageText,
-            log_file_path="./log/line_message.log",
-        )
+    if uploaded_files:
+        if st.button(
+            label="画像を保存する",
+            key="save_image_data",
+            type="primary",
+            icon=":material/cloud_upload:",
+        ):
+            for uploaded_file in uploaded_files:
+                image = Image.open(uploaded_file)
+                save_image(
+                    image, uploaded_file.name, st.session_state.data_raw_path, db
+                )
+
+            # 保存をLINEに通知
+            message_text = f"画像が保存されました: {uploaded_file.name}\nURLはこちらです。=> https://imaima-image-process-manager.streamlit.app/"
+            send_line_message(
+                USER_ID=st.secrets["LINE_USER_ID"],
+                CHANNEL_ACCESS_TOKEN=st.secrets["LINE_CHANNEL_ACCESS_TOKEN"],
+                messageText=message_text,
+                log_file_path="./log/line_message.log",
+            )
+            st.toast("画像が保存されました", icon="🎉")
+            time.sleep(1)
+            st.rerun()
 
 
 # --------------- データベーステーブルセクション ---------------
@@ -161,17 +203,17 @@ if len(image_data_list) > 0:
     df_raw_img = df_raw_img[columns_order]
     edited_df = st.data_editor(df_raw_img, column_config=column_config, hide_index=True)
 
-    selected_rows = edited_df[edited_df["Select"] == True]
+    # 選択された行のチェック
+    if edited_df is not None and "Select" in edited_df:
+        selected_rows = edited_df[edited_df["Select"] == True]
 
-
-# 選択したデータ情報を取得
-if not selected_rows.empty:
-    selected_id_list = selected_rows["id"].tolist()
-    st.session_state.selected_id_list = selected_id_list
-
-# checkboxを選択していない場合は空リストをセット
-if "selected_id_list" not in st.session_state:
-    st.session_state.selected_id_list = []
+        if not selected_rows.empty:
+            selected_id_list = selected_rows["id"].tolist()
+            st.session_state.selected_id_list = selected_id_list
+        else:
+            st.session_state.selected_id_list = []
+else:
+    st.write("No image data available.")
 
 
 # --------------- ボタンセクション ---------------

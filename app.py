@@ -5,12 +5,13 @@ import streamlit as st
 import pandas as pd
 from sqlalchemy.orm import Session
 from PIL import Image
-from streamlit_js_eval import streamlit_js_eval
 from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
 
 from services.initialize_setting import initialize_setting
 from services.delete_image_data import delete_image_db_and_folder
 from services.dummy_heavy_image_processing import dummy_heavy_image_processing
+
+from services.ObjectDetection import ObjectDetection
 from database.database import get_db
 from database.cruds.image_data import (
     create_image_data,
@@ -54,6 +55,31 @@ def message_dialog(message):
     st.write(f"{message}")
 
 
+# 画像保存関数
+def save_image(image: Image.Image, file_name: str, save_path: str, db: Session) -> None:
+    """
+    画像を保存し、データベースに登録し、通知を送信する。
+
+    Args:
+        image (Image.Image): 保存するPIL画像オブジェクト。
+        file_name (str): 保存先のファイル名。
+        save_path (str): 保存先のディレクトリパス。
+        db (DatabaseSession): データベースセッションオブジェクト。
+    """
+    file_path = os.path.join(save_path, file_name)
+    image.save(file_path)
+
+    # データベースに保存
+    new_image_data = ImageDataCreate(
+        file_name=file_name,
+        file_path=file_path,
+        file_extension=file_name.split(".")[-1],
+        file_size=os.path.getsize(file_path),
+        description="",
+    )
+    create_image_data(db=db, image_data_create=new_image_data)
+
+
 st.title(":material/folder_managed: 画像処理マネージャー")
 
 if st.sidebar.button(
@@ -67,50 +93,69 @@ if st.sidebar.button(
 # --------------- 画像アップロードセクション ---------------
 st.subheader(":material/cloud_upload: 画像アップロード", divider="gray")
 
-uploaded_files = st.file_uploader(
-    label="画像をアップロードしてください",
-    type=["png", "jpg", "jpeg"],
-    accept_multiple_files=True,
-)
+take_photo = st.toggle("📸 Take a photo?")
 
-if uploaded_files:
-    if st.button(
-        label="画像を保存する",
-        key="save_image_data",
-        type="primary",
-        icon=":material/cloud_upload:",
-    ):
-        for uploaded_file in uploaded_files:
-            image = Image.open(uploaded_file)
-            file_name = uploaded_file.name
-            file_path = os.path.join(st.session_state.data_raw_path, file_name)
-            file_extension = os.path.splitext(uploaded_file.name)[1][1:]
-            file_size = uploaded_file.size
+if take_photo:
+    picture = st.camera_input("Take a picture", label_visibility="hidden")
 
-            image.save(file_path)
-            # dbに保存
-            new_image_data = ImageDataCreate(
-                file_name=file_name,
-                file_path=file_path,
-                file_extension=file_extension,
-                file_size=file_size,
-                description="",
+    if picture:
+        st.image(picture)
+
+        # 保存ボタンを表示
+        if st.button(
+            label="撮影した画像を保存する",
+            key="save_camera_image",
+            type="primary",
+            icon=":material/cloud_upload:",
+        ):
+            camera_file_name = f"camera_image_{int(time.time())}.png"
+            image: Image.Image = Image.open(picture)
+            save_image(image, camera_file_name, st.session_state.data_raw_path, db)
+
+            # 保存をLINEに通知
+            message_text = f"画像が保存されました: {camera_file_name}\nURLはこちらです。=> https://imaima-image-process-manager.streamlit.app/"
+            send_line_message(
+                USER_ID=st.secrets["LINE_USER_ID"],
+                CHANNEL_ACCESS_TOKEN=st.secrets["LINE_CHANNEL_ACCESS_TOKEN"],
+                messageText=message_text,
+                log_file_path="./log/line_message.log",
             )
-            create_image_data(db=db, image_data_create=new_image_data)
+            st.toast("画像が保存されました", icon="🎉")
+            time.sleep(1)
+            st.rerun()
 
-        st.toast("画像が保存されました", icon="🎉")
-        time.sleep(1)
-        streamlit_js_eval(js_code="window.location.reload(true);", key="reload")
+else:
+    uploaded_files = st.file_uploader(
+        label="画像をアップロードしてください",
+        type=["png", "jpg", "jpeg"],
+        accept_multiple_files=True,
+        label_visibility="hidden",
+    )
 
-        # 保存をlineに通知
-        messageText = f"画像が保存されました: {file_name}\nURLはこちらです。=> https://imaima-image-process-manager.streamlit.app/"
-        send_line_message(
-            USER_ID=st.secrets["LINE_USER_ID"],
-            CHANNEL_ACCESS_TOKEN=st.secrets["LINE_CHANNEL_ACCESS_TOKEN"],
-            messageText=messageText,
-            log_file_path="./log/line_message.log",
-        )
+    if uploaded_files:
+        if st.button(
+            label="画像を保存する",
+            key="save_image_data",
+            type="primary",
+            icon=":material/cloud_upload:",
+        ):
+            for uploaded_file in uploaded_files:
+                image = Image.open(uploaded_file)
+                save_image(
+                    image, uploaded_file.name, st.session_state.data_raw_path, db
+                )
 
+            # 保存をLINEに通知
+            message_text = f"画像が保存されました: {uploaded_file.name}\nURLはこちらです。=> https://imaima-image-process-manager.streamlit.app/"
+            send_line_message(
+                USER_ID=st.secrets["LINE_USER_ID"],
+                CHANNEL_ACCESS_TOKEN=st.secrets["LINE_CHANNEL_ACCESS_TOKEN"],
+                messageText=message_text,
+                log_file_path="./log/line_message.log",
+            )
+            st.toast("画像が保存されました", icon="🎉")
+            time.sleep(1)
+            st.rerun()
 
 # --------------- データベーステーブルセクション ---------------
 st.subheader(":material/database: Image database", divider="gray")
@@ -163,10 +208,10 @@ if "selected_id_list" not in st.session_state:
 
 
 # --------------- ボタンセクション ---------------
-left_button, middle_button, right_button = st.columns(3)
+first_left_button, first_right_button = st.columns(2)
 
 # --------------- 画像確認プロセス ---------------
-if left_button.button(
+if first_left_button.button(
     label="画像確認",
     key="view_image_data",
     type="primary",
@@ -189,7 +234,7 @@ if left_button.button(
 
 
 # --------------- データ削除プロセス ---------------
-if middle_button.button(
+if first_right_button.button(
     label="データの削除処理",
     key="delete_image_data",
     type="primary",
@@ -204,8 +249,11 @@ if middle_button.button(
         )
         st.rerun()
 
+
 # --------------- 画像処理プロセス ---------------
-if right_button.button(
+second_left_button, second_right_button = st.columns(2)
+
+if second_left_button.button(
     label="画像処理",
     key="image_processing",
     type="primary",
@@ -263,10 +311,78 @@ if right_button.button(
             progress_bar.progress((idx + 1) / total_images)
 
 
-if st.button(
-    label="AI画像処理",
+if second_right_button.button(
+    label="物体検出AI",
     key="ai_image_processing",
     type="primary",
     icon=":material/memory:",
+    use_container_width=True,
 ):
-    message_dialog("Maybe comming soon...")
+    if len(st.session_state.selected_id_list) == 0:
+        st.toast("画像を選択してください", icon="🚨")
+    else:
+        progress_bar = st.progress(0, text="画像処理実施中・・・")
+        total_images = len(st.session_state.selected_id_list)
+
+        # 物体検出インスタンスを作成
+        obj_detector = ObjectDetection(model_path="./models/efficientdet_lite0.tflite")
+
+        # 結果表示用のst.columns
+        header_col1, header_col2 = st.columns(2)
+        header_col1.markdown('#### before')
+        header_col2.markdown('#### after')
+
+        for idx, image_id in enumerate(st.session_state.selected_id_list):
+            image_data = get_image_data_by_id(db=db, image_data_id=image_id)
+
+            if image_data is not None:
+                image_path = str(image_data.file_path)
+                image = cv2.imread(image_path)
+                image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+                if image is None:
+                    raise ValueError(
+                        f"Failed to read the image from {image_data.file_path}"
+                    )
+
+                # 画像認識プロセス
+                detected_image = obj_detector.process_image(image_file=image_path)
+                new_file_name = f"ai_processed_{image_data.file_name}"
+                save_path = os.path.join(
+                    st.session_state.data_processed_path, new_file_name
+                )
+                cv2.imwrite(save_path, detected_image)
+
+                # 結果表示
+                col_1, col_2 = st.columns(2)
+                with col_1:
+                    st.image(image_rgb, use_container_width=True)
+                with col_2:
+                    st.image(detected_image, caption=new_file_name, use_container_width=True)
+
+                # データベース処理プロセス
+                processed_data = ProcessedImageDataCreate(
+                    file_name=new_file_name,
+                    file_path=save_path,
+                    processed_at=pd.Timestamp.now(tz="UTC")
+                    .tz_convert("Asia/Tokyo")
+                    .floor("s"),
+                )
+                create_processed_image_data(db=db, image_data=processed_data)
+
+                # table: image_data
+                update_image_data(
+                    db=db, image_data_id=int(image_data.id), is_processed=True
+                )
+            else:
+                st.toast("画像データが見つかりませんでした", icon="🚨")
+
+            progress_bar.progress((idx + 1) / total_images)
+
+
+if st.button(
+    label="somthing",
+    key="somthing",
+    type="primary",
+):
+    message_dialog("Maybe something is coming soon...")
