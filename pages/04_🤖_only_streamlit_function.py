@@ -6,7 +6,6 @@ import streamlit as st
 import pandas as pd
 from sqlalchemy.orm import Session
 from PIL import Image
-from streamlit_js_eval import streamlit_js_eval
 
 from services.initialize_setting import initialize_setting
 from services.delete_image_data import delete_image_db_and_folder

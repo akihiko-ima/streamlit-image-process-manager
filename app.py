@@ -11,7 +11,7 @@ from services.initialize_setting import initialize_setting
 from services.delete_image_data import delete_image_db_and_folder
 from services.dummy_heavy_image_processing import dummy_heavy_image_processing
 
-from services.ObjectDetection import ObjectDetection
+# from services.ObjectDetection import ObjectDetection
 from database.database import get_db
 from database.cruds.image_data import (
     create_image_data,
@@ -318,67 +318,70 @@ if second_right_button.button(
     icon=":material/memory:",
     use_container_width=True,
 ):
-    if len(st.session_state.selected_id_list) == 0:
-        st.toast("画像を選択してください", icon="🚨")
-    else:
-        progress_bar = st.progress(0, text="画像処理実施中・・・")
-        total_images = len(st.session_state.selected_id_list)
+    message_dialog("Maybe one day I'll fix it....")
 
-        # 物体検出インスタンスを作成
-        obj_detector = ObjectDetection(model_path="./models/efficientdet_lite0.tflite")
+    # if len(st.session_state.selected_id_list) == 0:
+    #     st.toast("画像を選択してください", icon="🚨")
+    # else:
+    #     progress_bar = st.progress(0, text="画像処理実施中・・・")
+    #     total_images = len(st.session_state.selected_id_list)
 
-        # 結果表示用のst.columns
-        header_col1, header_col2 = st.columns(2)
-        header_col1.markdown('#### before')
-        header_col2.markdown('#### after')
 
-        for idx, image_id in enumerate(st.session_state.selected_id_list):
-            image_data = get_image_data_by_id(db=db, image_data_id=image_id)
+    #     # 物体検出インスタンスを作成
+    #     obj_detector = ObjectDetection(model_path="./models/efficientdet_lite0.tflite")
 
-            if image_data is not None:
-                image_path = str(image_data.file_path)
-                image = cv2.imread(image_path)
-                image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    #     # 結果表示用のst.columns
+    #     header_col1, header_col2 = st.columns(2)
+    #     header_col1.markdown('#### before')
+    #     header_col2.markdown('#### after')
 
-                if image is None:
-                    raise ValueError(
-                        f"Failed to read the image from {image_data.file_path}"
-                    )
+    #     for idx, image_id in enumerate(st.session_state.selected_id_list):
+    #         image_data = get_image_data_by_id(db=db, image_data_id=image_id)
 
-                # 画像認識プロセス
-                detected_image = obj_detector.process_image(image_file=image_path)
-                new_file_name = f"ai_processed_{image_data.file_name}"
-                save_path = os.path.join(
-                    st.session_state.data_processed_path, new_file_name
-                )
-                detected_image_rgb = cv2.cvtColor(detected_image, cv2.COLOR_BGR2RGB)
-                cv2.imwrite(save_path, detected_image_rgb)
+    #         if image_data is not None:
+    #             image_path = str(image_data.file_path)
+    #             image = cv2.imread(image_path)
+    #             image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
-                # 結果表示
-                col_1, col_2 = st.columns(2)
-                with col_1:
-                    st.image(image_rgb, use_container_width=True)
-                with col_2:
-                    st.image(detected_image, caption=new_file_name, use_container_width=True)
+    #             if image is None:
+    #                 raise ValueError(
+    #                     f"Failed to read the image from {image_data.file_path}"
+    #                 )
 
-                # データベース処理プロセス
-                processed_data = ProcessedImageDataCreate(
-                    file_name=new_file_name,
-                    file_path=save_path,
-                    processed_at=pd.Timestamp.now(tz="UTC")
-                    .tz_convert("Asia/Tokyo")
-                    .floor("s"),
-                )
-                create_processed_image_data(db=db, image_data=processed_data)
+    #             # 画像認識プロセス
+    #             detected_image = obj_detector.process_image(image_file=image_path)
+    #             new_file_name = f"ai_processed_{image_data.file_name}"
+    #             save_path = os.path.join(
+    #                 st.session_state.data_processed_path, new_file_name
+    #             )
+    #             detected_image_rgb = cv2.cvtColor(detected_image, cv2.COLOR_BGR2RGB)
+    #             cv2.imwrite(save_path, detected_image_rgb)
 
-                # table: image_data
-                update_image_data(
-                    db=db, image_data_id=int(image_data.id), is_processed=True
-                )
-            else:
-                st.toast("画像データが見つかりませんでした", icon="🚨")
+    #             # 結果表示
+    #             col_1, col_2 = st.columns(2)
+    #             with col_1:
+    #                 st.image(image_rgb, use_container_width=True)
+    #             with col_2:
+    #                 st.image(detected_image, caption=new_file_name, use_container_width=True)
 
-            progress_bar.progress((idx + 1) / total_images)
+    #             # データベース処理プロセス
+    #             processed_data = ProcessedImageDataCreate(
+    #                 file_name=new_file_name,
+    #                 file_path=save_path,
+    #                 processed_at=pd.Timestamp.now(tz="UTC")
+    #                 .tz_convert("Asia/Tokyo")
+    #                 .floor("s"),
+    #             )
+    #             create_processed_image_data(db=db, image_data=processed_data)
+
+    #             # table: image_data
+    #             update_image_data(
+    #                 db=db, image_data_id=int(image_data.id), is_processed=True
+    #             )
+    #         else:
+    #             st.toast("画像データが見つかりませんでした", icon="🚨")
+
+    #         progress_bar.progress((idx + 1) / total_images)
 
 
 if st.button(
