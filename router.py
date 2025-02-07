@@ -7,6 +7,7 @@ from views import (
     processed_check_page,
     comment_page,
     README,
+    dynamic_graph,
 )
 
 
@@ -16,8 +17,15 @@ def router():
     with st.sidebar:
         selected = option_menu(
             "IPM",
-            ["Home", "Upload", "Manage", "Comment", "README"],
-            icons=["house", "bi-upload", "database", "gear", "bi-bell"],
+            ["Home", "Upload", "Manage", "Comment", "README", "graph"],
+            icons=[
+                "house",
+                "bi-upload",
+                "database",
+                "gear",
+                "bi-bell",
+                "bi-graph-up-arrow",
+            ],
             menu_icon="bi-camera",
             default_index=0,
         )
@@ -32,3 +40,5 @@ def router():
         comment_page.show()
     elif selected == "README":
         README.show()
+    elif selected == "graph":
+        dynamic_graph.show()
