@@ -1,4 +1,5 @@
 import os
+from contextlib import contextmanager
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
@@ -24,7 +25,8 @@ def create_tables():
     Base.metadata.create_all(engine)
 
 
-def get_db():
+@contextmanager
+def get_db_session():
     """データベースセッションを取得する関数"""
     db = SessionLocal()
     try:

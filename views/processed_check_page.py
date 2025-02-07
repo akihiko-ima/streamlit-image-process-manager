@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
 
 from services.initialize_setting import initialize_setting
-from database.database import get_db
+from database.database import get_db_session
 from database.cruds.processed_image_data import (
     get_all_processed_images,
     get_processed_image_data_by_id,
@@ -17,11 +17,11 @@ from utils.format_datetime_column import format_datetime_column
 def show():
     # --------------- initialized ---------------
     initialize_setting()
-    db: Session = next(get_db())
 
     st.title(":material/folder_managed: 画像処理結果確認")
 
-    processed_image_data_list = get_all_processed_images(db=db)
+    with get_db_session() as db:
+        processed_image_data_list = get_all_processed_images(db=db)
 
     # データフレームの作成
     if len(processed_image_data_list) > 0:
@@ -72,7 +72,10 @@ def show():
             st.toast("画像を選択してください", icon="🚨")
         else:
             for image_id in st.session_state.selected_processed_id_list:
-                image_data = get_processed_image_data_by_id(db=db, image_id=image_id)
+                with get_db_session() as db:
+                    image_data = get_processed_image_data_by_id(
+                        db=db, image_id=image_id
+                    )
 
                 if image_data is not None:
                     image = cv2.imread(image_data.file_path)

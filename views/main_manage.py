@@ -8,11 +8,10 @@ from PIL import Image
 from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
 
 from services.initialize_setting import initialize_setting
-from services.delete_image_data import delete_image_db_and_folder
 from services.dummy_heavy_image_processing import dummy_heavy_image_processing
 
 # from services.ObjectDetection import ObjectDetection
-from database.database import get_db
+from database.database import get_db_session
 from database.cruds.image_data import (
     create_image_data,
     get_all_image_data,
@@ -23,13 +22,12 @@ from database.cruds.processed_image_data import create_processed_image_data
 from schemas.schemas import ImageDataCreate, ProcessedImageDataCreate
 from utils.format_datetime_column import format_datetime_column
 from utils.send_line_message import send_line_message
-from utils.image_utils import save_image
+from utils.image_utils import save_image, delete_image_db_and_folder
 
 
 def show():
     # --------------- initialized ---------------
     initialize_setting()
-    db: Session = next(get_db())
 
     # Define a function to display a message dialog
     @st.dialog("この機能は今後開発予定です。")
@@ -66,7 +64,10 @@ def show():
             ):
                 camera_file_name = f"camera_image_{int(time.time())}.png"
                 image: Image.Image = Image.open(picture)
-                save_image(image, camera_file_name, st.session_state.data_raw_path, db)
+                with get_db_session() as db:
+                    save_image(
+                        image, camera_file_name, st.session_state.data_raw_path, db
+                    )
 
                 # 保存をLINEに通知
                 message_text = f"画像が保存されました: {camera_file_name}\nURLはこちらです。=> https://imaima-image-process-manager.streamlit.app/"
@@ -97,9 +98,13 @@ def show():
             ):
                 for uploaded_file in uploaded_files:
                     image = Image.open(uploaded_file)
-                    save_image(
-                        image, uploaded_file.name, st.session_state.data_raw_path, db
-                    )
+                    with get_db_session() as db:
+                        save_image(
+                            image,
+                            uploaded_file.name,
+                            st.session_state.data_raw_path,
+                            db,
+                        )
 
                 # 保存をLINEに通知
                 message_text = f"画像が保存されました: {uploaded_file.name}\nURLはこちらです。=> https://imaima-image-process-manager.streamlit.app/"
@@ -116,7 +121,8 @@ def show():
     # --------------- データベーステーブルセクション ---------------
     st.subheader(":material/database: Image database", divider="gray")
 
-    image_data_list = get_all_image_data(db=db)
+    with get_db_session() as db:
+        image_data_list = get_all_image_data(db=db)
 
     # データフレームの作成
     if len(image_data_list) > 0:
@@ -177,7 +183,8 @@ def show():
             st.toast("画像を選択してください", icon="🚨")
         else:
             for image_id in st.session_state.selected_id_list:
-                image_data = get_image_data_by_id(db=db, image_data_id=image_id)
+                with get_db_session() as db:
+                    image_data = get_image_data_by_id(db=db, image_data_id=image_id)
 
                 if image_data is not None:
                     image = Image.open(image_data.file_path)
@@ -200,9 +207,10 @@ def show():
         if len(st.session_state.selected_id_list) == 0:
             st.toast("画像を選択してください", icon="🚨")
         else:
-            delete_image_db_and_folder(
-                db=db, image_id_list=st.session_state["selected_id_list"]
-            )
+            with get_db_session() as db:
+                delete_image_db_and_folder(
+                    db=db, image_id_list=st.session_state["selected_id_list"]
+                )
             st.rerun()
 
     # --------------- 画像処理プロセス ---------------
@@ -222,7 +230,8 @@ def show():
             total_images = len(st.session_state.selected_id_list)
 
             for idx, image_id in enumerate(st.session_state.selected_id_list):
-                image_data = get_image_data_by_id(db=db, image_data_id=image_id)
+                with get_db_session() as db:
+                    image_data = get_image_data_by_id(db=db, image_data_id=image_id)
 
                 if image_data is not None:
                     # 画像処理プロセス
@@ -254,12 +263,14 @@ def show():
                         .tz_convert("Asia/Tokyo")
                         .floor("s"),
                     )
-                    create_processed_image_data(db=db, image_data=processed_data)
+                    with get_db_session() as db:
+                        create_processed_image_data(db=db, image_data=processed_data)
 
                     # table: image_data
-                    update_image_data(
-                        db=db, image_data_id=int(image_data.id), is_processed=True
-                    )
+                    with get_db_session() as db:
+                        update_image_data(
+                            db=db, image_data_id=int(image_data.id), is_processed=True
+                        )
 
                 else:
                     st.toast("画像データが見つかりませんでした", icon="🚨")

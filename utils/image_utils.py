@@ -1,9 +1,15 @@
 import os
-from database.database import get_db
-from database.cruds.image_data import create_image_data
-from schemas.schemas import ImageDataCreate
 from sqlalchemy.orm import Session
+from typing import List
 from PIL import Image
+
+from database.database import get_db_session
+from database.cruds.image_data import (
+    create_image_data,
+    get_image_data_by_id,
+    delete_image_data,
+)
+from schemas.schemas import ImageDataCreate
 
 
 def save_image(image: Image.Image, file_name: str, save_path: str, db: Session) -> None:
@@ -27,4 +33,16 @@ def save_image(image: Image.Image, file_name: str, save_path: str, db: Session) 
         file_size=os.path.getsize(file_path),
         description="",
     )
-    create_image_data(db=db, image_data_create=new_image_data)
+    with get_db_session() as db:
+        create_image_data(db=db, image_data_create=new_image_data)
+
+
+def delete_image_db_and_folder(db: Session, image_id_list: List[int]) -> None:
+    for image_id in image_id_list:
+        image_data = get_image_data_by_id(db, image_id)
+
+        if image_data and os.path.exists(image_data.file_path):
+            os.remove(image_data.file_path)
+
+        with get_db_session() as db:
+            delete_image_data(db, image_id)
