@@ -49,3 +49,18 @@ def initialize_setting():
             st.session_state.selected_id_list = []
 
         st.session_state.is_initialized = True
+
+    # CSSでst.toastのスタイルをカスタマイズ
+    st.markdown(
+        """
+        <style>
+        .stToast {
+            background-color: #64748b !important;
+            color: white !important;
+            border-radius: 10px;
+            padding: 18px;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )

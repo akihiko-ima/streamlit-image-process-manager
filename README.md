@@ -44,13 +44,19 @@ streamlit-image-process-manager/
 │  ├─ dummy_heavy_image_processing.py
 │  └─ initialize_setting.py
 ├─ utils/                                  # 汎用関数
-│  └─ format_datetime_column.py
+│  ├─ encode_image.py
+│  ├─ format_datetime_column.py
+│  ├─ image_utils.py
+│  └─ send_line_message.py
 ├─ pages/
-│  ├─ 1_🚀_processed_check_page.py
-│  ├─ 2_📑_bonus_comment_page.py
-│  └─ 3_⚠️_README.py
+│  ├─ main_manage.py
+│  ├─ only_streamlit_function.py
+│  ├─ processed_check_page.py
+│  ├─ comment_page.py
+│  └─ README.py
 ├─ .env                                    # 環境設定
 ├─ app.py                                  # メインアプリケーション
+├─ router.py                               # ルーティング設定
 └─ data.db                                 # データベース(SQLite)
 ```
 
