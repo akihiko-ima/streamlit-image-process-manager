@@ -3,7 +3,6 @@ import cv2
 import pandas as pd
 from PIL import Image
 from sqlalchemy.orm import Session
-from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
 
 from services.initialize_setting import initialize_setting
 from database.database import get_db_session
@@ -12,6 +11,7 @@ from database.cruds.processed_image_data import (
     get_processed_image_data_by_id,
 )
 from utils.format_datetime_column import format_datetime_column
+from utils.aggrid_dataframe import configure_aggrid
 
 
 def show():
@@ -28,39 +28,15 @@ def show():
         df_processed_img = pd.DataFrame(processed_image_data_list)
         df_processed_img = format_datetime_column(df_processed_img, "processed_at")
 
-        # AgGridのsetting
-        grid_builder = GridOptionsBuilder.from_dataframe(
-            df_processed_img,
-            editable=False,
-            filter=True,
-            resizable=True,
-            sortable=False,
-        )
-        grid_builder.configure_selection(selection_mode="multiple", use_checkbox=True)
-        grid_builder.configure_side_bar(filters_panel=True, columns_panel=False)
-        grid_builder.configure_default_column(
-            enablePivot=True, enableValue=True, enableRowGroup=True
-        )
-        grid_builder.configure_grid_options(rowHeight=50)
-        grid_options = grid_builder.build()
-        grid_options["columnDefs"][0]["checkboxSelection"] = True
-
-        response = AgGrid(
-            df_processed_img,
-            gridOptions=grid_options,
-            update_mode=GridUpdateMode.MODEL_CHANGED,
-            theme="alpine",
-        )
-
         # ユーザーが選択したデータ情報を取得
-        selected_df = pd.DataFrame(response["selected_rows"])
+        selected_df = configure_aggrid(df_processed_img)
         if not selected_df.empty:
             selected_processed_id_list = selected_df["id"].tolist()
-            st.session_state.selected_processed_id_list = selected_processed_id_list
+            st.session_state["selected_processed_id_list"] = selected_processed_id_list
 
     # checkboxを選択していない場合は空リストをセット
     if "selected_processed_id_list" not in st.session_state:
-        st.session_state.selected_processed_id_list = []
+        st.session_state["selected_processed_id_list"] = []
 
     if st.button(
         label="画像処理結果確認",
@@ -68,10 +44,10 @@ def show():
         type="primary",
         icon=":material/search:",
     ):
-        if len(st.session_state.selected_processed_id_list) == 0:
+        if len(st.session_state["selected_processed_id_list"]) == 0:
             st.toast("画像を選択してください", icon="🚨")
         else:
-            for image_id in st.session_state.selected_processed_id_list:
+            for image_id in st.session_state["selected_processed_id_list"]:
                 with get_db_session() as db:
                     image_data = get_processed_image_data_by_id(
                         db=db, image_id=image_id

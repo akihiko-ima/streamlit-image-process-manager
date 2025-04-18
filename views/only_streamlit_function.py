@@ -65,7 +65,7 @@ def show():
                 image: Image.Image = Image.open(picture)
                 with get_db_session() as db:
                     save_image(
-                        image, camera_file_name, st.session_state.data_raw_path, db
+                        image, camera_file_name, st.session_state["data_raw_path"], db
                     )
 
                 # 保存をLINEに通知
@@ -101,7 +101,7 @@ def show():
                         save_image(
                             image,
                             uploaded_file.name,
-                            st.session_state.data_raw_path,
+                            st.session_state["data_raw_path"],
                             db,
                         )
 
@@ -173,9 +173,9 @@ def show():
 
             if not selected_rows.empty:
                 selected_id_list = selected_rows["id"].tolist()
-                st.session_state.selected_id_list = selected_id_list
+                st.session_state["selected_id_list"] = selected_id_list
             else:
-                st.session_state.selected_id_list = []
+                st.session_state["selected_id_list"] = []
     else:
         st.write("No image data available.")
 
@@ -190,10 +190,10 @@ def show():
         icon=":material/search:",
         use_container_width=True,
     ):
-        if len(st.session_state.selected_id_list) == 0:
+        if len(st.session_state["selected_id_list"]) == 0:
             st.toast("画像を選択してください", icon="🚨")
         else:
-            for image_id in st.session_state.selected_id_list:
+            for image_id in st.session_state["selected_id_list"]:
                 with get_db_session() as db:
                     image_data = get_image_data_by_id(db=db, image_data_id=image_id)
 
@@ -215,7 +215,7 @@ def show():
         icon=":material/delete:",
         use_container_width=True,
     ):
-        if len(st.session_state.selected_id_list) == 0:
+        if len(st.session_state["selected_id_list"]) == 0:
             st.toast("画像を選択してください", icon="🚨")
         else:
             with get_db_session() as db:
@@ -232,13 +232,13 @@ def show():
         icon=":material/memory:",
         use_container_width=True,
     ):
-        if len(st.session_state.selected_id_list) == 0:
+        if len(st.session_state["selected_id_list"]) == 0:
             st.toast("画像を選択してください", icon="🚨")
         else:
             progress_bar = st.progress(0, text="画像処理実施中・・・")
-            total_images = len(st.session_state.selected_id_list)
+            total_images = len(st.session_state["selected_id_list"])
 
-            for idx, image_id in enumerate(st.session_state.selected_id_list):
+            for idx, image_id in enumerate(st.session_state["selected_id_list"]):
                 with get_db_session() as db:
                     image_data = get_image_data_by_id(db=db, image_data_id=image_id)
 
@@ -256,7 +256,7 @@ def show():
 
                     new_file_name = f"processed_{image_data.file_name}"
                     save_path = os.path.join(
-                        st.session_state.data_processed_path, new_file_name
+                        st.session_state["data_processed_path"], new_file_name
                     )
                     cv2.imwrite(save_path, processed_image)
                     st.image(

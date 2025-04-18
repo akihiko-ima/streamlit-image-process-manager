@@ -5,7 +5,6 @@ import streamlit as st
 import pandas as pd
 from sqlalchemy.orm import Session
 from PIL import Image
-from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
 
 from services.initialize_setting import initialize_setting
 from services.dummy_heavy_image_processing import dummy_heavy_image_processing
@@ -22,6 +21,7 @@ from database.cruds.processed_image_data import create_processed_image_data
 from schemas.schemas import ImageDataCreate, ProcessedImageDataCreate
 from utils.format_datetime_column import format_datetime_column
 from utils.send_line_message import send_line_message
+from utils.aggrid_dataframe import configure_aggrid
 from utils.image_utils import save_image, delete_image_db_and_folder
 
 
@@ -66,7 +66,7 @@ def show():
                 image: Image.Image = Image.open(picture)
                 with get_db_session() as db:
                     save_image(
-                        image, camera_file_name, st.session_state.data_raw_path, db
+                        image, camera_file_name, st.session_state["data_raw_path"], db
                     )
 
                 # 保存をLINEに通知
@@ -102,7 +102,7 @@ def show():
                         save_image(
                             image,
                             uploaded_file.name,
-                            st.session_state.data_raw_path,
+                            st.session_state["data_raw_path"],
                             db,
                         )
 
@@ -136,37 +136,17 @@ def show():
 
         # データフレームをsession_stateに保存
         if "raw_image_datatable" not in st.session_state:
-            st.session_state.raw_image_datatable = df_raw_img
-
-        # AgGridのsetting
-        grid_builder = GridOptionsBuilder.from_dataframe(
-            df_raw_img, editable=False, filter=True, resizable=True, sortable=False
-        )
-        grid_builder.configure_selection(selection_mode="multiple", use_checkbox=True)
-        grid_builder.configure_side_bar(filters_panel=True, columns_panel=False)
-        grid_builder.configure_default_column(
-            enablePivot=True, enableValue=True, enableRowGroup=True
-        )
-        grid_builder.configure_grid_options(rowHeight=50)
-        grid_options = grid_builder.build()
-        grid_options["columnDefs"][0]["checkboxSelection"] = True
-
-        response = AgGrid(
-            df_raw_img,
-            gridOptions=grid_options,
-            update_mode=GridUpdateMode.MODEL_CHANGED,
-            theme="alpine",
-        )
+            st.session_state["raw_image_datatable"] = df_raw_img
 
         # 選択したデータ情報を取得
-        selected_df = pd.DataFrame(response["selected_rows"])
+        selected_df = configure_aggrid(df_raw_img)
         if not selected_df.empty:
             selected_id_list = selected_df["id"].tolist()
-            st.session_state.selected_id_list = selected_id_list
+            st.session_state["selected_id_list"] = selected_id_list
 
     # checkboxを選択していない場合は空リストをセット
     if "selected_id_list" not in st.session_state:
-        st.session_state.selected_id_list = []
+        st.session_state["selected_id_list"] = []
 
     # --------------- ボタンセクション ---------------
     first_left_button, first_right_button = st.columns(2)
@@ -179,10 +159,10 @@ def show():
         icon=":material/search:",
         use_container_width=True,
     ):
-        if len(st.session_state.selected_id_list) == 0:
+        if len(st.session_state["selected_id_list"]) == 0:
             st.toast("画像を選択してください", icon="🚨")
         else:
-            for image_id in st.session_state.selected_id_list:
+            for image_id in st.session_state["selected_id_list"]:
                 with get_db_session() as db:
                     image_data = get_image_data_by_id(db=db, image_data_id=image_id)
 
@@ -204,7 +184,7 @@ def show():
         icon=":material/delete:",
         use_container_width=True,
     ):
-        if len(st.session_state.selected_id_list) == 0:
+        if len(st.session_state["selected_id_list"]) == 0:
             st.toast("画像を選択してください", icon="🚨")
         else:
             with get_db_session() as db:
@@ -223,13 +203,13 @@ def show():
         icon=":material/memory:",
         use_container_width=True,
     ):
-        if len(st.session_state.selected_id_list) == 0:
+        if len(st.session_state["selected_id_list"]) == 0:
             st.toast("画像を選択してください", icon="🚨")
         else:
             progress_bar = st.progress(0, text="画像処理実施中・・・")
-            total_images = len(st.session_state.selected_id_list)
+            total_images = len(st.session_state["selected_id_list"])
 
-            for idx, image_id in enumerate(st.session_state.selected_id_list):
+            for idx, image_id in enumerate(st.session_state["selected_id_list"]):
                 with get_db_session() as db:
                     image_data = get_image_data_by_id(db=db, image_data_id=image_id)
 
@@ -247,7 +227,7 @@ def show():
 
                     new_file_name = f"processed_{image_data.file_name}"
                     save_path = os.path.join(
-                        st.session_state.data_processed_path, new_file_name
+                        st.session_state["data_processed_path"], new_file_name
                     )
                     cv2.imwrite(save_path, processed_image)
                     st.image(

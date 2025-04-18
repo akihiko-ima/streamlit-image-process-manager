@@ -18,9 +18,9 @@ def initialize_setting():
     load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 
     if "is_initialized" not in st.session_state:
-        st.session_state.is_initialized = False
+        st.session_state["is_initialized"] = False
 
-    if not st.session_state.is_initialized:
+    if not st.session_state["is_initialized"]:
         DATA_PATH = os.getenv("DATA_PATH")
         DATA_RAW_PATH = os.path.join(DATA_PATH, "raw")
         DATA_PROCESSED_PATH = os.path.join(DATA_PATH, "processed")
@@ -40,15 +40,15 @@ def initialize_setting():
 
         # session_stateの設定
         if "db_path" not in st.session_state:
-            st.session_state.db_path = os.getenv("DB_PATH")
+            st.session_state["db_path"] = os.getenv("DB_PATH")
         if "data_raw_path" not in st.session_state:
-            st.session_state.data_raw_path = DATA_RAW_PATH
+            st.session_state["data_raw_path"] = DATA_RAW_PATH
         if "data_processed_path" not in st.session_state:
-            st.session_state.data_processed_path = DATA_PROCESSED_PATH
+            st.session_state["data_processed_path"] = DATA_PROCESSED_PATH
         if "selected_id_list" not in st.session_state:
-            st.session_state.selected_id_list = []
+            st.session_state["selected_id_list"] = []
 
-        st.session_state.is_initialized = True
+        st.session_state["is_initialized"] = True
 
     # CSSでst.toastのスタイルをカスタマイズ
     st.markdown(
