@@ -15,7 +15,7 @@ def initialize_setting():
     Raises:
         OSError: ディレクトリの作成に失敗した場合に発生します。
     """
-    load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
+    load_dotenv()
 
     if "is_initialized" not in st.session_state:
         st.session_state["is_initialized"] = False
@@ -24,13 +24,13 @@ def initialize_setting():
         DATA_PATH = os.getenv("DATA_PATH")
         DATA_RAW_PATH = os.path.join(DATA_PATH, "raw")
         DATA_PROCESSED_PATH = os.path.join(DATA_PATH, "processed")
-        LOG_PATH = os.getenv("LOG_PATH")
+        LOG_DIR = os.getenv("LOG_DIR")
 
         if DATA_PATH and not os.path.exists(DATA_PATH):
             os.makedirs(DATA_PATH)
             os.makedirs(DATA_RAW_PATH)
             os.makedirs(DATA_PROCESSED_PATH)
-            os.makedirs(LOG_PATH)
+            os.makedirs(LOG_DIR)
 
             print(f"Directory created.")
         else:

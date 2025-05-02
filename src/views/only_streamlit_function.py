@@ -1,15 +1,15 @@
 import os
+import base64
 import cv2
 import time
 import streamlit as st
 import pandas as pd
 from sqlalchemy.orm import Session
 from PIL import Image
+from dotenv import load_dotenv
 
 from services.initialize_setting import initialize_setting
 from services.dummy_heavy_image_processing import dummy_heavy_image_processing
-
-# from services.ObjectDetection import ObjectDetection
 from database.database import get_db_session
 from database.cruds.image_data import (
     create_image_data,
@@ -21,13 +21,16 @@ from database.cruds.processed_image_data import create_processed_image_data
 from schemas.schemas import ImageDataCreate, ProcessedImageDataCreate
 from utils.format_datetime_column import format_datetime_column
 from utils.send_line_message import send_line_message
-from utils.aggrid_dataframe import configure_aggrid
+from utils.encode_image import encode_image
 from utils.image_utils import save_image, delete_image_db_and_folder
 
 
 def show():
     # --------------- initialized ---------------
     initialize_setting()
+    load_dotenv()
+    LOG_DIR = os.getenv("LOG_DIR")
+    LOG_PATH = os.path.join(LOG_DIR, "line_message.log")
 
     # Define a function to display a message dialog
     @st.dialog("この機能は今後開発予定です。")
@@ -75,7 +78,7 @@ def show():
                     USER_ID=st.secrets["LINE_USER_ID"],
                     CHANNEL_ACCESS_TOKEN=st.secrets["LINE_CHANNEL_ACCESS_TOKEN"],
                     messageText=message_text,
-                    log_file_path="./log/line_message.log",
+                    log_file_path=LOG_PATH,
                 )
                 st.toast("画像が保存されました", icon="🎉")
                 time.sleep(1)
@@ -112,7 +115,7 @@ def show():
                     USER_ID=st.secrets["LINE_USER_ID"],
                     CHANNEL_ACCESS_TOKEN=st.secrets["LINE_CHANNEL_ACCESS_TOKEN"],
                     messageText=message_text,
-                    log_file_path="./log/line_message.log",
+                    log_file_path=LOG_PATH,
                 )
                 st.toast("画像が保存されました", icon="🎉")
                 time.sleep(1)
@@ -128,31 +131,63 @@ def show():
     if len(image_data_list) > 0:
         df_raw_img = pd.DataFrame(image_data_list)
 
+        df_raw_img["image"] = df_raw_img["file_path"].apply(encode_image)
         df_raw_img["is_processed"] = df_raw_img["is_processed"].apply(
             lambda x: "済" if x else "未"
         )
         df_raw_img = format_datetime_column(df_raw_img, "uploaded_at")
         df_raw_img = format_datetime_column(df_raw_img, "updated_at")
 
-        # データフレームをsession_stateに保存
-        if "raw_image_datatable" not in st.session_state:
-            st.session_state["raw_image_datatable"] = df_raw_img
+        df_raw_img["Select"] = [False] * len(df_raw_img)
 
-        # 選択したデータ情報を取得
-        selected_df = configure_aggrid(df_raw_img)
-        if not selected_df.empty:
-            selected_id_list = selected_df["id"].tolist()
-            st.session_state["selected_id_list"] = selected_id_list
+        column_config = {
+            "id": st.column_config.NumberColumn("ID"),
+            "file_name": st.column_config.TextColumn("ファイル名"),
+            "file_path": st.column_config.TextColumn("ファイルパス"),
+            "file_size": st.column_config.NumberColumn(
+                "ファイルサイズ (KB)", format="%d"
+            ),
+            "is_processed": st.column_config.TextColumn("処理状態"),
+            "image": st.column_config.ImageColumn("画像"),
+        }
 
-    # checkboxを選択していない場合は空リストをセット
-    if "selected_id_list" not in st.session_state:
-        st.session_state["selected_id_list"] = []
+        columns_order = [
+            "Select",
+            "id",
+            "image",
+            "file_name",
+            "file_path",
+            "file_extension",
+            "file_size",
+            "uploaded_at",
+            "updated_at",
+            "is_processed",
+            "description",
+        ]
+
+        # DataFrame の列を並び替え
+        df_raw_img = df_raw_img[columns_order]
+        edited_df = st.data_editor(
+            df_raw_img, column_config=column_config, hide_index=True
+        )
+
+        # 選択された行のチェック
+        if edited_df is not None and "Select" in edited_df:
+            selected_rows = edited_df[edited_df["Select"] == True]
+
+            if not selected_rows.empty:
+                selected_id_list = selected_rows["id"].tolist()
+                st.session_state["selected_id_list"] = selected_id_list
+            else:
+                st.session_state["selected_id_list"] = []
+    else:
+        st.write("No image data available.")
 
     # --------------- ボタンセクション ---------------
-    first_left_button, first_right_button = st.columns(2)
+    left_button, middle_button, right_button = st.columns(3)
 
     # --------------- 画像確認プロセス ---------------
-    if first_left_button.button(
+    if left_button.button(
         label="画像確認",
         key="view_image_data",
         type="primary",
@@ -177,7 +212,7 @@ def show():
                     st.toast("画像データが見つかりませんでした", icon="🚨")
 
     # --------------- データ削除プロセス ---------------
-    if first_right_button.button(
+    if middle_button.button(
         label="データの削除処理",
         key="delete_image_data",
         type="primary",
@@ -194,9 +229,7 @@ def show():
             st.rerun()
 
     # --------------- 画像処理プロセス ---------------
-    second_left_button, second_right_button = st.columns(2)
-
-    if second_left_button.button(
+    if right_button.button(
         label="画像処理",
         key="image_processing",
         type="primary",
@@ -256,80 +289,10 @@ def show():
                     st.toast("画像データが見つかりませんでした", icon="🚨")
                 progress_bar.progress((idx + 1) / total_images)
 
-    if second_right_button.button(
-        label="物体検出AI",
+    if st.button(
+        label="AI画像処理",
         key="ai_image_processing",
         type="primary",
         icon=":material/memory:",
-        use_container_width=True,
     ):
-        message_dialog("Maybe one day I'll fix it....")
-
-        # if len(st.session_state.selected_id_list) == 0:
-        #     st.toast("画像を選択してください", icon="🚨")
-        # else:
-        #     progress_bar = st.progress(0, text="画像処理実施中・・・")
-        #     total_images = len(st.session_state.selected_id_list)
-
-        #     # 物体検出インスタンスを作成
-        #     obj_detector = ObjectDetection(model_path="./models/efficientdet_lite0.tflite")
-
-        #     # 結果表示用のst.columns
-        #     header_col1, header_col2 = st.columns(2)
-        #     header_col1.markdown('#### before')
-        #     header_col2.markdown('#### after')
-
-        #     for idx, image_id in enumerate(st.session_state.selected_id_list):
-        #         image_data = get_image_data_by_id(db=db, image_data_id=image_id)
-
-        #         if image_data is not None:
-        #             image_path = str(image_data.file_path)
-        #             image = cv2.imread(image_path)
-        #             image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-
-        #             if image is None:
-        #                 raise ValueError(
-        #                     f"Failed to read the image from {image_data.file_path}"
-        #                 )
-
-        #             # 画像認識プロセス
-        #             detected_image = obj_detector.process_image(image_file=image_path)
-        #             new_file_name = f"ai_processed_{image_data.file_name}"
-        #             save_path = os.path.join(
-        #                 st.session_state.data_processed_path, new_file_name
-        #             )
-        #             detected_image_rgb = cv2.cvtColor(detected_image, cv2.COLOR_BGR2RGB)
-        #             cv2.imwrite(save_path, detected_image_rgb)
-
-        #             # 結果表示
-        #             col_1, col_2 = st.columns(2)
-        #             with col_1:
-        #                 st.image(image_rgb, use_container_width=True)
-        #             with col_2:
-        #                 st.image(detected_image, caption=new_file_name, use_container_width=True)
-
-        #             # データベース処理プロセス
-        #             processed_data = ProcessedImageDataCreate(
-        #                 file_name=new_file_name,
-        #                 file_path=save_path,
-        #                 processed_at=pd.Timestamp.now(tz="UTC")
-        #                 .tz_convert("Asia/Tokyo")
-        #                 .floor("s"),
-        #             )
-        #             create_processed_image_data(db=db, image_data=processed_data)
-
-        #             # table: image_data
-        #             update_image_data(
-        #                 db=db, image_data_id=int(image_data.id), is_processed=True
-        #             )
-        #         else:
-        #             st.toast("画像データが見つかりませんでした", icon="🚨")
-
-        #         progress_bar.progress((idx + 1) / total_images)
-
-    if st.button(
-        label="somthing",
-        key="somthing",
-        type="primary",
-    ):
-        message_dialog("Maybe something is coming soon...")
+        message_dialog("Maybe comming soon...")
